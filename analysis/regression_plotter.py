@@ -443,99 +443,41 @@ def set_box_color(bp, color):
 
 if __name__ == "__main__":
     # Simulation parameters
-    videos = ['mc', 'ge_cities', 'ge_tour', 'vp']
     rates = np.arange(10, 51, 10)
-    fpss = [30, 60]
-    video = 'vp'
+    video = 'vp' # options are 'mc', 'ge_cities', 'ge_tour', 'vp'
     rate = 30
     fps = 60
     
     # Regression options
-    reg_methods = ['Linear', 'Quantile']
+    method = 'Linear' # Quantile is also an option
     quantile = 0.95
-    guard = 50
-    lags = 20
-    future = [1, 6]
-    bins = 500
-    shifts = 10
-    max_taps = 10
-    future_steps = 1
-    single = False
+    guard = 50 # samples thrown away in the beginning
+
+    future_steps = 1 # 1 or 6 in article
+    shift = 1 # tau in the paper
+    past_steps = 10 # N in the paper
+    future_steps = 1 # T in the paper
+    single = True
     
-    if (single):
-        # The prediction and results are for a single trace
-        plotter = RegressionPlotter([video], [rate], [fps])
-        
-        for method in reg_methods:
-            # Run colormap for single-frame prediction
-            residue_tail = []
-            residue_std = []
-            residue_tail.append(['x','y','z'])
-            residue_std.append(['x','y','z'])
-            for shift in range(shifts + 1):
-                for past_steps in range(max_taps + 1):
-                    model = plotter.regress(method, past_steps, future_steps, shift, quantile, guard)
-                    residue = plotter.residue(model, past_steps, future_steps, shift, quantile, guard, rate, fps)
-                    residue_tail.append([past_steps, shift, np.sort(residue)[plotter.get_index(quantile, guard, future_steps)] / 1000])
-                    residue_std.append([past_steps, shift, np.std(residue) / 1000])
-            with open('figures/' + method + '_95.csv', 'w') as f:
-                writer = csv.writer(f, delimiter = " ")
-                writer.writerows(residue_tail)
-            with open('figures/' + method + '_std.csv', 'w') as f:
-                writer = csv.writer(f, delimiter = " ")
-                writer.writerows(residue_std)
-                                    
-            # Autocorrelation and CDF for future prediction
-            for future_steps in future:
-                residues = []
-                labels = []
-                for past_steps in range(max_taps + 1):
-                    model = plotter.regress(method, past_steps, future_steps, 0, quantile, guard)
-                    print(method,future_steps,model)
-                    residue = plotter.residue(model, past_steps, future_steps, 0, quantile, guard, rate, fps)
-                    if (past_steps == 6):
-                        RegressionPlotter.fit_residue_plot(residue, bins, folder='figures/', savename=method + '_' + str(future_steps) + '_frames')
-                    residues.append(residue / 1000)
-                    labels.append('N: ' + str(past_steps))
-                RegressionPlotter.histogram_plot(residues, labels, bins, True, True, folder='figures/', savename=method + '_' + str(future_steps) + '_frames')
-                RegressionPlotter.autocorr_plot(residues, labels, lags, folder='figures/', savename=method + '_' + str(future_steps) + '_frames')
-    else:
-        # The models are over multiple traces
-        for method in reg_methods:
-            for future_steps in future:
-                plt.figure()
-                residue_single = []
-                residue_rate = []
-                residue_gen = []
-                labels = []
-                past_steps = 6
-                shift = 0
-                gen_files = []
-                gen_plotter = RegressionPlotter(videos, rates, fpss)
-                gen_model = gen_plotter.regress(method, past_steps, future_steps, shift, quantile, guard)
-                # Analyze residue for all traces
-                for video in videos:
-                    rate_files = []
-                    rate_plotter = RegressionPlotter([video], rates, fpss)
-                    rate_model = rate_plotter.regress(method, past_steps, future_steps, shift, quantile, guard)
-                    for rate in rates:
-                        plotter = RegressionPlotter([video], [rate], [fps])
-                        single_model = plotter.regress(method, past_steps, future_steps, shift, quantile, guard)
-                        residue_single.append(plotter.residue(single_model, past_steps, future_steps, shift, quantile, guard, rate, fps) * fps / rate / 125000)
-                        residue_rate.append(plotter.residue(rate_model, past_steps, future_steps, shift, quantile, guard, rate, fps) * fps / rate / 125000)
-                        residue_gen.append(plotter.residue(gen_model, past_steps, future_steps, shift, quantile, guard, rate, fps) * fps / rate / 125000)
-                        labels.append(video + '_' + str(rate))
-                
-                bpg = plt.boxplot(residue_gen, positions=np.arange(0, len(labels), 1) * 3.0 - 0.8, sym='', widths=0.6)
-                bpr = plt.boxplot(residue_rate, positions=np.arange(0, len(labels), 1) * 3.0, sym='', widths=0.6)
-                bps = plt.boxplot(residue_single, positions=np.arange(0, len(labels), 1) * 3.0 + 0.8, sym='', widths=0.6)
-                set_box_color(bpg, '#FFD700')
-                set_box_color(bpr, '#EA5F94')
-                set_box_color(bps, '#0000FF')
-                
-                plt.xlim(-3, len(labels)*3)
-                plt.ylim(-1, 1)
-                plt.xticks(np.arange(0, len(labels) * 3, 3), labels)
-                plt.tight_layout()
-                tikz.save('figures/gen_boxplot_' + method + '_' + str(future_steps) + '.tex')
-                plt.show()
+    # plot parameters
+    bins = 500 # for the residue histogram
+    lags = 20 # where autocorrelation is plotted
+
+    
+    # The prediction and results are for a single trace
+    plotter = RegressionPlotter([video], [rate], [fps])
+                            
+    # Autocorrelation and CDF for future prediction
+    residues = []
+    labels = []
+    model = plotter.regress(method, past_steps, future_steps, shift, quantile)
+    print(method,future_steps,model)
+    residue = plotter.residue(model, past_steps, future_steps, shift, quantile, guard, rate, fps)
+
+    RegressionPlotter.fit_residue_plot(residue, bins, True)
+    residues.append(residue / 1000)
+    labels.append('N: ' + str(past_steps))
+    
+    RegressionPlotter.histogram_plot(residues, labels, bins, True, True, show = True)
+    RegressionPlotter.autocorr_plot(residues, labels, lags, show = True)
+  
