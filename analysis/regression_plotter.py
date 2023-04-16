@@ -213,7 +213,7 @@ class RegressionPlotter:
         guard: int
             The number of steps to discard at the beginning and end of the
             dataframe to avoid 
-        future_steps : int
+        future_steps : intRe
             How many steps to average (T in the paper)
             
         Returns
